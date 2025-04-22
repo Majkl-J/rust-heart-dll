@@ -1,0 +1,11 @@
+[package]
+name = "rust-heart"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "rustheart"
+crate-type = ['cdylib']
+
+[dependencies]
+spin_sleep = "1.3.1"
