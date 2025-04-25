@@ -1,12 +1,12 @@
-use std::{ffi::CString, os::raw::c_char, sync::{atomic::AtomicBool, Arc, Mutex}, thread, time::Duration};
+use std::{ffi::CString, os::raw::c_char, sync::{atomic::AtomicBool, Arc, Mutex}, thread, time::Duration, vec};
 
 pub mod freeing;
 pub mod wrappers;
 
-/** `test_lib`
- * Generally only for debugging
- * Returns a CString pointer, and keeps the string in memory for it to be cleared up later
- */
+/// Returns a CString pointer, and keeps the string in memory for it to be cleared up later
+/// 
+/// Generally only for debugging
+
 #[unsafe(no_mangle)]
 pub extern "C" fn test_lib() -> *const c_char {
     let test_string = CString::new("Hello! This is rust-heart.").expect("CString::new failed");
@@ -19,11 +19,11 @@ pub extern "C" fn test_lib() -> *const c_char {
     test_pointer
 }
 
-/// Returns a vector with actual thread wait time (in ms), and actual baud rate. Input desired baud rate
-fn actual_thread_wait_time(baud: u64) -> Vec<u64> {
+/// Returns a vector with actual thread wait time (in ms), and actual freq rate. Input desired freq rate
+fn actual_thread_wait_time(freq: u64) -> Vec<u64> {
     // We need this because the Windows wait, unlike the Unix one, is shit, and I'm targeting windows
     // This means we are limited to 1ms waits. Sad but more than enough for an ECG signal
-    let mut actual_baud = baud;
+    let mut actual_baud = freq;
     if actual_baud > 1000 {
         actual_baud = 1000;
     }
@@ -74,7 +74,7 @@ pub struct SimpleHeart {
     t_duration: f64,
 
     /// Current output
-    pub output_value: Arc<Mutex<f64>>,
+    pub output_value: Arc<Mutex<Vec<f64>>>,
 }
 
 impl SimpleHeart {
@@ -94,11 +94,11 @@ impl SimpleHeart {
             s_duration: qrs_duration * 0.35,
             s_to_t_interval: -0.09 * total_r_to_r.sqrt() + 0.13 * total_r_to_r + 0.04, 
             t_duration: 1.06 * total_r_to_r.sqrt() - 0.51 * total_r_to_r - 0.33, 
-            output_value: Arc::new(Mutex::new(0.0)),
+            output_value: Arc::new(Mutex::new(vec![])),
         }
     }
 
-    fn start_beat(this: Arc<Mutex<Self>>, baud: u64) {
+    fn start_beat(this: Arc<Mutex<Self>>, freq: u64) {
         if this.lock().unwrap().active.swap(true, std::sync::atomic::Ordering::SeqCst) {
             return;
         }
@@ -106,7 +106,7 @@ impl SimpleHeart {
         let amplitude = this.lock().unwrap().amplitude;
         thread::spawn(move || {
             // Initialize with the correct wait time
-            let timings = actual_thread_wait_time(baud);
+            let timings = actual_thread_wait_time(freq);
 
             let mut current_tick: u64 = 0;
             let mut this_beat_start_tick: u64 = 0;
@@ -130,10 +130,14 @@ impl SimpleHeart {
                 output += triangle(current_tick, wave_delay, (heart.s_duration * timings[1] as f64) as u64, -WaveAmps::SWAVE);
                 wave_delay += ((heart.s_duration + heart.s_to_t_interval) * timings[1] as f64) as u64;
                 output += triangle(current_tick, wave_delay, (heart.t_duration * timings[1] as f64) as u64, WaveAmps::TWAVE);
-
+                if cfg!(debug_assertions) {
+                    println!("Current value: {output}");
+                }
                 {
                 let mut out_val = output_value.lock().unwrap();
-                *out_val = output * amplitude;
+                if out_val.len() < 5000 {
+                    out_val.push(output * amplitude);
+                }
                 }
                 current_tick += 1;
                 spin_sleep::sleep(Duration::from_millis(timings[0]));
@@ -141,10 +145,14 @@ impl SimpleHeart {
         });
     }
 
-    fn return_value(&mut self) -> f64 {
-        let readvalue = match self.output_value.lock() {
-            Ok(val) => *val,
-            Err(_) => -1000.0,
+    fn return_values(&mut self) -> Vec<f64> {
+        let readvalue: Vec<f64> = match self.output_value.lock() {
+            Ok(mut val) => {
+                let slice = val.clone();
+                *val = vec![];
+                slice.to_vec()
+            },
+            Err(_) => vec![],
         };
         readvalue
     }
