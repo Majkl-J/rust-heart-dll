@@ -1,7 +1,10 @@
 use std::{ffi::CString, os::raw::c_char, sync::{atomic::AtomicBool, Arc, Mutex}, thread, time::Duration, vec};
 
+use noisegen::Noise;
+
 pub mod freeing;
 pub mod wrappers;
+pub mod noisegen;
 
 /// Returns a CString pointer, and keeps the string in memory for it to be cleared up later
 /// 
@@ -73,6 +76,11 @@ pub struct SimpleHeart {
     s_to_t_interval: f64,
     t_duration: f64,
 
+    /// Attached noise generators. 
+    /// These all get passed through and called each tick and return
+    /// from their implemented Noise trait
+    attached_noises: Vec<Box<dyn Noise + Send>>,
+
     /// Current output
     pub output_value: Arc<Mutex<Vec<f64>>>,
 }
@@ -93,7 +101,9 @@ impl SimpleHeart {
             r_duration: qrs_duration * 0.42, 
             s_duration: qrs_duration * 0.35,
             s_to_t_interval: -0.09 * total_r_to_r.sqrt() + 0.13 * total_r_to_r + 0.04, 
-            t_duration: 1.06 * total_r_to_r.sqrt() - 0.51 * total_r_to_r - 0.33, 
+            t_duration: 1.06 * total_r_to_r.sqrt() - 0.51 * total_r_to_r - 0.33,
+
+            attached_noises: Vec::new(),
             output_value: Arc::new(Mutex::new(vec![])),
         }
     }
@@ -155,6 +165,14 @@ impl SimpleHeart {
             Err(_) => vec![],
         };
         readvalue
+    }
+
+    fn attach_noise(&mut self, noise: Box<dyn Noise + Send>) {
+        self.attached_noises.push(noise);
+    }
+
+    fn reset_noise(&mut self) {
+        self.attached_noises = Vec::new();
     }
 }
 
