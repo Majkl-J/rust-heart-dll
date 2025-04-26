@@ -79,7 +79,7 @@ pub struct SimpleHeart {
     /// Attached noise generators. 
     /// These all get passed through and called each tick and return
     /// from their implemented Noise trait
-    attached_noises: Vec<Box<dyn Noise + Send>>,
+    attached_noises: Arc<Mutex<Vec<Box<dyn Noise + Send + Sync>>>>,
 
     /// Current output
     pub output_value: Arc<Mutex<Vec<f64>>>,
@@ -103,7 +103,7 @@ impl SimpleHeart {
             s_to_t_interval: -0.09 * total_r_to_r.sqrt() + 0.13 * total_r_to_r + 0.04, 
             t_duration: 1.06 * total_r_to_r.sqrt() - 0.51 * total_r_to_r - 0.33,
 
-            attached_noises: Vec::new(),
+            attached_noises: Arc::new(Mutex::new(Vec::new())),
             output_value: Arc::new(Mutex::new(vec![])),
         }
     }
@@ -122,7 +122,7 @@ impl SimpleHeart {
             let mut this_beat_start_tick: u64 = 0;
             let mut output: f64;
             loop {
-                let heart = this.lock().unwrap();
+                let mut heart = this.lock().unwrap();
                 let tick_r_to_r = (heart.total_r_to_r * timings[1] as f64) as u64; // We recalculate this since total_r_to_r may change
 
                 if current_tick - this_beat_start_tick >= tick_r_to_r {
@@ -140,13 +140,15 @@ impl SimpleHeart {
                 output += triangle(current_tick, wave_delay, (heart.s_duration * timings[1] as f64) as u64, -WaveAmps::SWAVE);
                 wave_delay += ((heart.s_duration + heart.s_to_t_interval) * timings[1] as f64) as u64;
                 output += triangle(current_tick, wave_delay, (heart.t_duration * timings[1] as f64) as u64, WaveAmps::TWAVE);
+                let output_scaled = output * amplitude;
                 if cfg!(debug_assertions) {
                     println!("Current value: {output}");
                 }
+                let output_noise = heart.calculate_noise(current_tick, freq);
                 {
                 let mut out_val = output_value.lock().unwrap();
                 if out_val.len() < 5000 {
-                    out_val.push(output * amplitude);
+                    out_val.push(output_scaled + output_noise);
                 }
                 }
                 current_tick += 1;
@@ -167,12 +169,23 @@ impl SimpleHeart {
         readvalue
     }
 
-    fn attach_noise(&mut self, noise: Box<dyn Noise + Send>) {
-        self.attached_noises.push(noise);
+    fn calculate_noise(&mut self, current_tick: u64, tick_freq: u64) -> f64{
+        let mut final_noise: f64 = 0.0;
+        let locked_noises = self.attached_noises.lock().unwrap();
+        for noise_gen in locked_noises.iter() {
+            final_noise += noise_gen.get_tick_noise(current_tick, tick_freq)
+        };
+        final_noise
+    }
+
+    fn attach_noise(&mut self, noise: Box<dyn Noise + Send + Sync>) {
+        let mut locked_noises = self.attached_noises.lock().unwrap();
+        locked_noises.push(noise);
     }
 
     fn reset_noise(&mut self) {
-        self.attached_noises = Vec::new();
+        let mut locked_noises = self.attached_noises.lock().unwrap();
+        *locked_noises = Vec::new();
     }
 }
 
