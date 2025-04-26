@@ -139,7 +139,7 @@ impl SimpleHeart {
                 wave_delay += (heart.r_duration * timings[1] as f64) as u64;
                 output += triangle(current_tick, wave_delay, (heart.s_duration * timings[1] as f64) as u64, -WaveAmps::SWAVE);
                 wave_delay += ((heart.s_duration + heart.s_to_t_interval) * timings[1] as f64) as u64;
-                output += triangle(current_tick, wave_delay, (heart.t_duration * timings[1] as f64) as u64, WaveAmps::TWAVE);
+                output += second_order(current_tick, wave_delay, (heart.t_duration * timings[1] as f64) as u64, WaveAmps::TWAVE);
                 let output_scaled = output * amplitude;
                 if cfg!(debug_assertions) {
                     println!("Current value: {output}");
