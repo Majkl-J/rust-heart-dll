@@ -58,8 +58,8 @@ pub extern  "C" fn simple_heart_read(ptr: *mut Arc<Mutex<SimpleHeart>>) -> *mut 
 
 #[repr(u32)] // Fix the size to u32 just like C
 pub enum NoiseTypes {
-    MainsNoise,
-    RandomNoise,
+    MainsNoise, // Needs both amplitude and frequency
+    RandomNoise, // Uses only aplitude
 }
 
 #[unsafe(no_mangle)]
