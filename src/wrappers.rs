@@ -1,4 +1,4 @@
-use crate::SimpleHeart;
+use crate::{noisegen::{MainsNoise, Noise, RandomNoise}, SimpleHeart};
 
 use std::sync::{Arc, Mutex};
 
@@ -11,9 +11,7 @@ pub extern "C" fn build_simple_heart(bpm: u64, amplitude: f64) -> *mut Arc<Mutex
 
 #[unsafe(no_mangle)]
 pub extern "C" fn simple_heart_start(ptr: *mut Arc<Mutex<SimpleHeart>>, freq: u64) {
-    if ptr.is_null() {
-        return;
-    }
+    if ptr.is_null() {return}
     let heart: &mut Arc<Mutex<SimpleHeart>> = unsafe{&mut *ptr};
     SimpleHeart::start_beat(Arc::clone(&heart), freq)
 }
@@ -56,4 +54,43 @@ pub extern  "C" fn simple_heart_read(ptr: *mut Arc<Mutex<SimpleHeart>>) -> *mut 
         },
         Err(_) => return unsafe{f64_vector_as_c_ptr(vec![])}
     }
+}
+
+#[repr(u32)] // Fix the size to u32 just like C
+pub enum NoiseTypes {
+    MainsNoise,
+    RandomNoise,
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn simple_heart_add_noise(ptr: *mut Arc<Mutex<SimpleHeart>>, noise_type: NoiseTypes, amplitude: f64, freq: u64) {
+    if ptr.is_null() {return}
+    
+    let inited_noise: Box<dyn Noise + Send + Sync>;
+    match noise_type {
+        NoiseTypes::MainsNoise => inited_noise = Box::new(MainsNoise::new(amplitude, freq)),
+        NoiseTypes::RandomNoise => inited_noise = Box::new(RandomNoise::new(amplitude)),
+    }
+
+    let heart_ref: &mut Arc<Mutex<SimpleHeart>>= unsafe{&mut *ptr};
+    match heart_ref.lock() {
+        Ok(mut heart_guard) => {
+            heart_guard.attach_noise(inited_noise);
+        },
+        Err(_) => return
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn simple_heart_reset_noise(ptr: *mut Arc<Mutex<SimpleHeart>>){
+    if ptr.is_null() {return}
+
+    let heart_ref: &mut Arc<Mutex<SimpleHeart>>= unsafe{&mut *ptr};
+    match heart_ref.lock() {
+        Ok(mut heart_guard) => {
+            heart_guard.reset_noise();
+        },
+        Err(_) => return
+    }
+
 }
