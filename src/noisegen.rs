@@ -13,7 +13,6 @@ pub struct MainsNoise {
 
 impl MainsNoise {
     pub fn new(amplitude: f64, frequency: u64) -> MainsNoise {
-        println!("Mains hum initialized with {amplitude}, {frequency}");
         MainsNoise { amplitude: amplitude, frequency: frequency, tick_shift: 0 }
     }
 
