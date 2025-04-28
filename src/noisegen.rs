@@ -1,7 +1,7 @@
 use std::f64::consts::PI;
 use rand::random_range;
 
-pub trait Noise {
+pub trait Noise: Send + Sync{
     fn get_tick_noise(&self, _current_tick: u64, _tick_freq: u64) -> f64;    
 }
 
@@ -13,6 +13,7 @@ pub struct MainsNoise {
 
 impl MainsNoise {
     pub fn new(amplitude: f64, frequency: u64) -> MainsNoise {
+        println!("Mains hum initialized with {amplitude}, {frequency}");
         MainsNoise { amplitude: amplitude, frequency: frequency, tick_shift: 0 }
     }
 
@@ -23,10 +24,13 @@ impl MainsNoise {
 
 impl Noise for MainsNoise {
     fn get_tick_noise(&self, _current_tick: u64, _tick_freq: u64) -> f64 {
-        let wave_len = self.frequency / _tick_freq;
+        let wave_len = _tick_freq / self.frequency;
+        if wave_len == 0 {
+            return 0.0;
+        }
         // The current tick of the wave 
         let current_wave_point_tick = (_current_tick % wave_len) + self.tick_shift;
-        let current_wave_point_radians: f64 = (current_wave_point_tick as f64 / wave_len as f64) * PI;
+        let current_wave_point_radians: f64 = (current_wave_point_tick as f64 / wave_len as f64) * 2.0 * PI;
 
         current_wave_point_radians.sin() * self.amplitude
     }
@@ -34,6 +38,12 @@ impl Noise for MainsNoise {
 
 pub struct RandomNoise {
     amplitude: f64,
+}
+
+impl RandomNoise {
+    pub fn new(amplitude: f64) -> RandomNoise {
+        RandomNoise { amplitude: amplitude }
+    }
 }
 
 impl Noise for RandomNoise {
