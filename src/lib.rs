@@ -121,9 +121,38 @@ impl SimpleHeart {
             let mut current_tick: u64 = 0;
             let mut this_beat_start_tick: u64 = 0;
             let mut output: f64;
-            loop {
-                let mut heart = this.lock().unwrap();
-                let tick_r_to_r = (heart.total_r_to_r * timings[1] as f64) as u64; // We recalculate this since total_r_to_r may change
+
+            let mut total_r_to_r: f64;
+
+            let mut p_duration: f64;
+            let mut p_to_q_interval: f64;
+            let mut q_duration: f64;
+            let mut r_duration: f64;
+            let mut s_duration: f64;
+            let mut s_to_t_interval: f64;
+            let mut t_duration: f64;
+
+            let mut output_noise: f64;
+
+            loop { 
+                {
+                    // Copy all the values from the heart so we don't have to keep it locked
+                    let mut heart = this.lock().unwrap();
+
+                    total_r_to_r = heart.total_r_to_r;
+
+                    p_duration = heart.p_duration;
+                    p_to_q_interval = heart.p_to_q_interval;
+                    q_duration = heart.q_duration;
+                    r_duration = heart.r_duration;
+                    s_duration = heart.s_duration;
+                    s_to_t_interval = heart.s_to_t_interval;
+                    t_duration = heart.t_duration;
+
+                    output_noise = heart.calculate_noise(current_tick, freq);
+                }
+    
+                let tick_r_to_r = (total_r_to_r * timings[1] as f64) as u64; // We recalculate this since total_r_to_r may change
 
                 if current_tick - this_beat_start_tick >= tick_r_to_r {
                     this_beat_start_tick = current_tick;
@@ -131,20 +160,20 @@ impl SimpleHeart {
 
                 let mut wave_delay = this_beat_start_tick; // We cache this so I don't have to copypasta shit as much
                 output = 0.0;
-                output += second_order(current_tick, wave_delay, (heart.p_duration * timings[1] as f64) as u64, WaveAmps::PWAVE);
-                wave_delay += ((heart.p_duration + heart.p_to_q_interval) * timings[1] as f64) as u64;
-                output += triangle(current_tick, wave_delay, (heart.q_duration * timings[1] as f64) as u64, -WaveAmps::QWAVE);
-                wave_delay += (heart.q_duration * timings[1] as f64) as u64;
-                output += triangle(current_tick, wave_delay, (heart.r_duration * timings[1] as f64) as u64, WaveAmps::RWAVE);
-                wave_delay += (heart.r_duration * timings[1] as f64) as u64;
-                output += triangle(current_tick, wave_delay, (heart.s_duration * timings[1] as f64) as u64, -WaveAmps::SWAVE);
-                wave_delay += ((heart.s_duration + heart.s_to_t_interval) * timings[1] as f64) as u64;
-                output += second_order(current_tick, wave_delay, (heart.t_duration * timings[1] as f64) as u64, WaveAmps::TWAVE);
+                output += second_order(current_tick, wave_delay, (p_duration * timings[1] as f64) as u64, WaveAmps::PWAVE);
+                wave_delay += ((p_duration + p_to_q_interval) * timings[1] as f64) as u64;
+                output += triangle(current_tick, wave_delay, (q_duration * timings[1] as f64) as u64, -WaveAmps::QWAVE);
+                wave_delay += (q_duration * timings[1] as f64) as u64;
+                output += triangle(current_tick, wave_delay, (r_duration * timings[1] as f64) as u64, WaveAmps::RWAVE);
+                wave_delay += (r_duration * timings[1] as f64) as u64;
+                output += triangle(current_tick, wave_delay, (s_duration * timings[1] as f64) as u64, -WaveAmps::SWAVE);
+                wave_delay += ((s_duration + s_to_t_interval) * timings[1] as f64) as u64;
+                output += second_order(current_tick, wave_delay, (t_duration * timings[1] as f64) as u64, WaveAmps::TWAVE);
                 let output_scaled = output * amplitude;
                 if cfg!(debug_assertions) {
                     println!("Current value: {output}");
                 }
-                let output_noise = heart.calculate_noise(current_tick, freq);
+
                 {
                 let mut out_val = output_value.lock().unwrap();
                 if out_val.len() < 5000 {
