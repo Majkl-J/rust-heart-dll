@@ -220,7 +220,9 @@ impl SimpleHeart {
         });
     }
 
-    /// Returns the stored readings from the 
+    /// Returns the stored readings from the `output_value` vector.
+    /// Empties the vector after returning, allowing new values to
+    /// be added to it
     pub fn return_values(&mut self) -> Vec<f64> {
         let readvalue: Vec<f64> = match self.output_value.lock() {
             Ok(mut val) => {
@@ -233,6 +235,7 @@ impl SimpleHeart {
         readvalue
     }
 
+    /// Calculates the current noise of the signal by passing through all the dyn refs in `attached_noises`.
     fn calculate_noise(&mut self, current_tick: u64, tick_freq: u64) -> f64{
         let mut final_noise: f64 = 0.0;
         let locked_noises = self.attached_noises.lock().unwrap();
@@ -242,24 +245,26 @@ impl SimpleHeart {
         final_noise
     }
 
+    /// Attaches a new `Noise` trait dyn to the heart by adding it to the `attached_noises`
     pub fn attach_noise(&mut self, noise: Box<dyn Noise + Send + Sync>) {
         let mut locked_noises = self.attached_noises.lock().unwrap();
         locked_noises.push(noise);
     }
 
+    /// Removes all attached `Noise` trait dynamic refs from the heart.
     pub fn reset_noise(&mut self) {
         let mut locked_noises = self.attached_noises.lock().unwrap();
         *locked_noises = Vec::new();
     }
 }
 
-/**
- * Generates a one tick long part of a triangle wave.
- * `tick_now` - The current tick `u64`
- * `tick_begin` - The tick the wave started on `u64`
- * `duration` - The length of the entire wave, in ticks `u64`
- * `ampl` - Amplitude of the signal `f64`
- */
+/// Generates a one tick long part of a triangle wave.
+/// 
+/// ## Arguments
+/// * `tick_now` - The current tick `u64`
+/// * `tick_begin` - The tick the wave started on `u64`
+/// * `duration` - The length of the entire wave, in ticks `u64`
+/// * `ampl` - Amplitude of the signal `f64`
 fn triangle(tick_now: u64, tick_begin: u64, duration: u64, ampl: f64) -> f64 {
     let peak = duration / 2; // Time in ticks to reach top of the wave
     let peak_tick = tick_begin + peak;
@@ -276,13 +281,13 @@ fn triangle(tick_now: u64, tick_begin: u64, duration: u64, ampl: f64) -> f64 {
 }
 
 
-/**
- * Generates a one tick part of a second order wave.
- * `tick_now` - The current tick `u64`
- * `tick_begin` - The tick the wave started on `u64`
- * `duration` - The length of the entire wave, in ticks `u64`
- * `ampl` - Amplitude of the signal `f64`
- */
+/// Generates a one tick part of a second order wave.
+/// 
+/// ## Arguments
+/// * `tick_now` - The current tick `u64`
+/// * `tick_begin` - The tick the wave started on `u64`
+/// * `duration` - The length of the entire wave, in ticks `u64`
+/// * `ampl` - Amplitude of the signal `f64`
 fn second_order(tick_now: u64, tick_begin: u64, duration: u64, ampl: f64) -> f64 {
     let a = duration * duration / 4;
     let center_tick = tick_begin + duration / 2;
