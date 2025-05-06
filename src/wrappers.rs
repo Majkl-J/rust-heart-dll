@@ -27,7 +27,7 @@ pub struct F64Array {
 
 /// Turns a vector into a C compatible holder struct
 /// 
-/// # Unsafe
+/// ## Unsafe
 /// Make sure to correctly cleanup when calling this as it forgets the entire vector,
 /// leaving it hanging around in memory.
 unsafe fn f64_vector_as_c_ptr(vector: Vec<f64>) -> *mut F64Array {

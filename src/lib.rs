@@ -289,10 +289,10 @@ fn triangle(tick_now: u64, tick_begin: u64, duration: u64, ampl: f64) -> f64 {
 /// * `duration` - The length of the entire wave, in ticks `u64`
 /// * `ampl` - Amplitude of the signal `f64`
 fn second_order(tick_now: u64, tick_begin: u64, duration: u64, ampl: f64) -> f64 {
-    let a = duration * duration / 4;
+    let a = duration * duration / 4; // Time in ticks to reach top of the wave
     let center_tick = tick_begin + duration / 2;
 
-    let gain = ampl / a as f64;
+    let gain = ampl / a as f64; // Gain per tick
     if tick_now < tick_begin || tick_now > tick_begin + duration {
         return 0.0;
     }
