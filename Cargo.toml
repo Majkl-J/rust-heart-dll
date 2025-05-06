@@ -1,6 +1,6 @@
 [package]
-name = "rust-heart"
-version = "0.1.0"
+name = "rust-heart-lib"
+version = "0.2.1"
 edition = "2024"
 
 [lib]
